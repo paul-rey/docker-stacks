@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+
+  app:
+    build:
+      args:
+        USERNAME: ${USERNAME}
+        UID: ${UID}
+        TIMEZONE: ${TIMEZONE}
+        SERVER_NAME: ${SERVER_NAME}
+        NODE_VERSION: ${NODE_VERSION}
+      context: ./.docker/bin/${PHP_VERSION}
+    container_name: "${APPNAME}-app"
+    restart: "always"
+    ports:
+      - "${HTTP_PORT}:80"
+      - "${HTTPS_PORT}:443"
+    links:
+      - database
+    volumes:
+      - ./www:/var/www/html
+      - ./.docker/config/php/php.ini:/usr/local/etc/php/php.ini
+      - ./.docker/config/vhosts:/etc/apache2/sites-enabled
+      - ./.docker/logs/apache:/var/log/apache2
+      - ./.docker/certs:/etc/apache2/ssl/
+    environment:
+      SERVER_NAME: ${SERVER_NAME}
+      SERVER_ALIAS: ${SERVER_ALIAS}
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT}
+    networks:
+      appnet:
+        ipv4_address: ${APP_IP}
+
+  database:
+    build:
+      args:
+        USERNAME: ${USERNAME}
+      context: ./.docker/bin/${DB_VERSION}
+    container_name: "${APPNAME}-database"
+    restart: "always"
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      appnet:
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: "${APPNAME}-mailhog"
+    ports:
+      - "${MAILHOG_SMTP}:1025"
+      - "${MAILHOG_HTTP}:8025"
+    networks:
+      appnet:
+
+volumes:
+  data:
+
+networks:
+  appnet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: ${APP_SUBNET}
